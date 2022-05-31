@@ -141,6 +141,9 @@ func ISO8601TimeEncoder(t time.Time, enc PrimitiveArrayEncoder) {
 // instead of appending a pre-formatted string value.
 func RFC3339TimeEncoder(t time.Time, enc PrimitiveArrayEncoder) {
 	encodeTimeLayout(t, time.RFC3339, enc)
+	tNow := t.UnixNano()
+	sec := float64(tNow) / 1e9
+	enc.AppendFloat64(sec)
 }
 
 // RFC3339NanoTimeEncoder serializes a time.Time to an RFC3339-formatted string

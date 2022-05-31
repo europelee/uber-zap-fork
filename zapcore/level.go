@@ -37,12 +37,20 @@ const (
 	DebugLevel Level = iota - 1
 	// InfoLevel is the default logging priority.
 	InfoLevel
+	// NoticeLevel mileweb custom
+	NoticeLevel
 	// WarnLevel logs are more important than Info, but don't need individual
 	// human review.
 	WarnLevel
 	// ErrorLevel logs are high-priority. If an application is running smoothly,
 	// it shouldn't generate any error-level logs.
 	ErrorLevel
+	// CriticalLevel mileweb custom
+	CriticalLevel
+	// AlertLevel mileweb custom
+	AlertLevel
+	// EmergencyLevel mileweb custom
+	EmergencyLevel
 	// DPanicLevel logs are particularly important errors. In development the
 	// logger panics after writing the message.
 	DPanicLevel
@@ -62,6 +70,8 @@ func (l Level) String() string {
 		return "debug"
 	case InfoLevel:
 		return "info"
+	case NoticeLevel:
+		return "notice"
 	case WarnLevel:
 		return "warn"
 	case ErrorLevel:
@@ -78,24 +88,33 @@ func (l Level) String() string {
 }
 
 // CapitalString returns an all-caps ASCII representation of the log level.
+// mileweb custom
 func (l Level) CapitalString() string {
 	// Printing levels in all-caps is common enough that we should export this
 	// functionality.
 	switch l {
 	case DebugLevel:
-		return "DEBUG"
+		return "DBG\t7"
 	case InfoLevel:
-		return "INFO"
+		return "INF\t6"
+	case NoticeLevel:
+		return "NTC\t5"
 	case WarnLevel:
-		return "WARN"
+		return "WRN\t4"
 	case ErrorLevel:
-		return "ERROR"
+		return "ERR\t3"
+	case CriticalLevel:
+		return "CRT\t2"
+	case AlertLevel:
+		return "ALR\t1"
+	case EmergencyLevel:
+		return "EMG\t0"
 	case DPanicLevel:
-		return "DPANIC"
+		return "DPANIC\t2"
 	case PanicLevel:
-		return "PANIC"
+		return "PANIC\t2"
 	case FatalLevel:
-		return "FATAL"
+		return "FATAL\t2"
 	default:
 		return fmt.Sprintf("LEVEL(%d)", l)
 	}
@@ -123,15 +142,16 @@ func (l *Level) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// unmarshalText mileweb custom
 func (l *Level) unmarshalText(text []byte) bool {
 	switch string(text) {
-	case "debug", "DEBUG":
+	case "debug", "DEBUG", "DBG":
 		*l = DebugLevel
-	case "info", "INFO", "": // make the zero value useful
+	case "info", "INFO", "", "INF": // make the zero value useful
 		*l = InfoLevel
-	case "warn", "WARN":
+	case "warn", "WARN", "WRN":
 		*l = WarnLevel
-	case "error", "ERROR":
+	case "error", "ERROR", "ERR":
 		*l = ErrorLevel
 	case "dpanic", "DPANIC":
 		*l = DPanicLevel
@@ -139,6 +159,12 @@ func (l *Level) unmarshalText(text []byte) bool {
 		*l = PanicLevel
 	case "fatal", "FATAL":
 		*l = FatalLevel
+	case "CRT":
+		*l = CriticalLevel
+	case "ALR":
+		*l = AlertLevel
+	case "EMG":
+		*l = EmergencyLevel
 	default:
 		return false
 	}

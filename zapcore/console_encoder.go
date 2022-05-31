@@ -22,6 +22,7 @@ package zapcore
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"go.uber.org/zap/buffer"
@@ -45,6 +46,7 @@ func putSliceEncoder(e *sliceArrayEncoder) {
 
 type consoleEncoder struct {
 	*jsonEncoder
+	pid int64 // mileweb custom
 }
 
 // NewConsoleEncoder creates an encoder whose output is designed for human -
@@ -60,11 +62,12 @@ func NewConsoleEncoder(cfg EncoderConfig) Encoder {
 		// Use a default delimiter of '\t' for backwards compatibility
 		cfg.ConsoleSeparator = "\t"
 	}
-	return consoleEncoder{newJSONEncoder(cfg, true)}
+	pid := int64(os.Getpid())
+	return consoleEncoder{newJSONEncoder(cfg, true), pid}
 }
 
 func (c consoleEncoder) Clone() Encoder {
-	return consoleEncoder{c.jsonEncoder.Clone().(*jsonEncoder)}
+	return consoleEncoder{c.jsonEncoder.Clone().(*jsonEncoder), c.pid}
 }
 
 func (c consoleEncoder) EncodeEntry(ent Entry, fields []Field) (*buffer.Buffer, error) {
@@ -77,12 +80,15 @@ func (c consoleEncoder) EncodeEntry(ent Entry, fields []Field) (*buffer.Buffer, 
 	// If this ever becomes a performance bottleneck, we can implement
 	// ArrayEncoder for our plain-text format.
 	arr := getSliceEncoder()
-	if c.TimeKey != "" && c.EncodeTime != nil {
-		c.EncodeTime(ent.Time, arr)
-	}
+	// mileweb custom, switch EncodeLevel and EncodeTime calling order
 	if c.LevelKey != "" && c.EncodeLevel != nil {
 		c.EncodeLevel(ent.Level, arr)
 	}
+
+	if c.TimeKey != "" && c.EncodeTime != nil {
+		c.EncodeTime(ent.Time, arr)
+	}
+
 	if ent.LoggerName != "" && c.NameKey != "" {
 		nameEncoder := c.EncodeName
 
@@ -101,13 +107,24 @@ func (c consoleEncoder) EncodeEntry(ent Entry, fields []Field) (*buffer.Buffer, 
 			arr.AppendString(ent.Caller.Function)
 		}
 	}
+
 	for i := range arr.elems {
 		if i > 0 {
 			line.AppendString(c.ConsoleSeparator)
 		}
-		fmt.Fprint(line, arr.elems[i])
+		// mileweb custom for avoiding exponent representation
+		if f, ok := arr.elems[i].(float64); ok {
+			fmt.Fprintf(line, "%f", f)
+		} else {
+			fmt.Fprint(line, arr.elems[i])
+		}
+
 	}
 	putSliceEncoder(arr)
+
+	// mileweb custom
+	c.addSeparatorIfNecessary(line)
+	line.AppendInt(c.pid)
 
 	// Add the message itself.
 	if c.MessageKey != "" {
@@ -147,8 +164,10 @@ func (c consoleEncoder) writeContext(line *buffer.Buffer, extra []Field) {
 	if context.buf.Len() == 0 {
 		return
 	}
-
-	c.addSeparatorIfNecessary(line)
+	// use space instead of c.ConsoleSeparator(default \t) by mileweb custom
+	if line.Len() > 0 {
+		line.AppendString(" ")
+	}
 	line.AppendByte('{')
 	line.Write(context.buf.Bytes())
 	line.AppendByte('}')
